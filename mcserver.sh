@@ -93,31 +93,31 @@ else
 fi
 
 # FETCH LATEST VER API - thx to serverjars.com
-API_FETCH_LATEST="https://serverjars.com/api/fetchLatest/${SERVER_TYPE}/${SERVER_PROVIDER}"
+#API_FETCH_LATEST="https://serverjars.com/api/fetchLatest/${SERVER_TYPE}/${SERVER_PROVIDER}"
 # FETCH VER DETAILS API - thx to serverjars.com
-API_FETCH_DETAILS="https://serverjars.com/api/fetchDetails/${SERVER_TYPE}/${SERVER_PROVIDER}/${MC_VERSION}"
+#API_FETCH_DETAILS="https://serverjars.com/api/fetchDetails/${SERVER_TYPE}/${SERVER_PROVIDER}/${MC_VERSION}"
 
 # Get the latest MC version
-if [ ${MC_VERSION} = latest ]
-then
-  echo "\033[0;33mGetting latest Minecraft version... \033[0m"
-  echo ""
-  if ! MC_VERSION=$(wget -qO - $API_FETCH_LATEST | jq -r '.response.version')
-  then
-    echo "\033[0;31mError: Could not get latest version of Minecraft. Exiting... \033[0m" | tee server_cfg.txt
-    exit 1
-  fi
-  else
-  # Check if the version exists
-  if ! [ ${MC_VERSION} = "$(wget -qO - $API_FETCH_DETAILS | jq -r '.response.version')" ]
-  then
-    echo "\033[0;31mError: Minecraft version $MC_VERSION version does not exist or is not available. Exiting... \033[0m" | tee server_cfg.txt
-    exit 1
-  fi
-fi
+# if [ ${MC_VERSION} = latest ]
+# then
+#   echo "\033[0;33mGetting latest Minecraft version... \033[0m"
+#   echo ""
+#   if ! MC_VERSION=$(wget -qO - $API_FETCH_LATEST | jq -r '.response.version')
+#   then
+#     echo "\033[0;31mError: Could not get latest version of Minecraft. Exiting... \033[0m" | tee server_cfg.txt
+#     exit 1
+#   fi
+#   else
+#   # Check if the version exists
+#   if ! [ ${MC_VERSION} = "$(wget -qO - $API_FETCH_DETAILS | jq -r '.response.version')" ]
+#   then
+#     echo "\033[0;31mError: Minecraft version $MC_VERSION version does not exist or is not available. Exiting... \033[0m" | tee server_cfg.txt
+#     exit 1
+#   fi
+# fi
 
-# FETCH JAR API - thx to serverjars.com
-API_FETCH_JAR="https://serverjars.com/api/fetchJar/${SERVER_TYPE}/${SERVER_PROVIDER}/${MC_VERSION}"
+# FETCH JAR API - thx to serverjars.com 
+API_FETCH_JAR="https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${SERVER_BUILD}/forge-${MC_VERSION}-${SERVER_BUILD}-installer.jar"
 
 # Set the BUILD_FETCH_API value based on SERVER_PROVIDER
 case $SERVER_PROVIDER in
@@ -133,7 +133,7 @@ then
   # Get the latest build - GIMMICK CHECK CODE SINCE MAJOR SCRIPT UPDATE
   echo "\033[0;33mGetting latest build for ${SERVER_PROVIDER}... \033[0m"
   echo ""
-else
+ else
   # Check if the build exists
   echo "\033[0;33mChecking existance of $SERVER_BUILD build for ${SERVER_PROVIDER} \033[0m"
   echo ""
@@ -146,6 +146,7 @@ else
 fi
 
 # Set the jar file name
+#INSTALLER_NAME=${SERVER_PROVIDER}-${MC_VERSION}-${SERVER_BUILD}-installer.jar
 JAR_NAME=${SERVER_PROVIDER}-${MC_VERSION}-${SERVER_BUILD}.jar
 
 # Update jar if necessary
@@ -158,7 +159,7 @@ then
 fi
 
 # Download new server jar
-echo "\033[0;33mDownloading $JAR_NAME \033[0m"
+echo "\033[0;33mDownloading $JAR_NAME  \033[0m"
 echo ""
 if ! curl -o ${JAR_NAME} -sS ${API_FETCH_JAR}
 then
@@ -166,15 +167,19 @@ then
   exit 1
 fi
 
+echo "\033[0;32mSuccessfully downloaded: $JAR_NAME \033[0m"
+echo ""
+
+
 # install forge if necessary
 if [ "$SERVER_PROVIDER" = "forge" ]
 then
   # .installed file is used to check if forge is already installed by a previous run of the container
   if [ ! -e .installed ]
   then
-    echo "\033[0;33mInstalling Forge... This will take a while...\033[0m"
+    echo "\033[0;33mInstalling Forge $JAR_NAME ... This will take a while...\033[0m"
     echo ""
-    if ! java -jar $JAR_NAME --installServer > /dev/null 2>&1
+    if ! java -jar $JAR_NAME --installServer #> /dev/null 2>&1
     then
       echo "\033[0;31mError: Could not install Forge. Exiting... \033[0m" | tee server_cfg.txt
       exit 1
