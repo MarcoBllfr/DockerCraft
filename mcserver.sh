@@ -92,23 +92,31 @@ else
     exit 1
 fi
 
-# FETCH LATEST VER API - thx to serverjars.com
-#API_FETCH_LATEST="https://serverjars.com/api/fetchLatest/${SERVER_TYPE}/${SERVER_PROVIDER}"
+# FETCH LATEST VERSION API 
+API_FETCH_LATEST="https://mcutils.com/api/server-jars/${SERVER_PROVIDER}/latest"
 # FETCH VER DETAILS API - thx to serverjars.com
-#API_FETCH_DETAILS="https://serverjars.com/api/fetchDetails/${SERVER_TYPE}/${SERVER_PROVIDER}/${MC_VERSION}"
+# API_FETCH_DETAILS="https://serverjars.com/api/fetchDetails/${SERVER_TYPE}/${SERVER_PROVIDER}/${MC_VERSION}"
 
 # Get the latest MC version
-# if [ ${MC_VERSION} = latest ]
-# then
-#   echo "\033[0;33mGetting latest Minecraft version... \033[0m"
-#   echo ""
-#   if ! MC_VERSION=$(wget -qO - $API_FETCH_LATEST | jq -r '.response.version')
-#   then
-#     echo "\033[0;31mError: Could not get latest version of Minecraft. Exiting... \033[0m" | tee server_cfg.txt
-#     exit 1
-#   fi
-#   else
-#   # Check if the version exists
+if [ ${MC_VERSION} = latest ]
+then
+  echo "\033[0;33mGetting latest Minecraft version for ${SERVER_PROVIDER}... \033[0m"
+  echo ""
+  if ! MC_VERSION=$(curl -s $API_FETCH_LATEST | jq -r '.version')
+  then
+    echo "\033[0;31mError: Could not get latest version of Minecraft. Exiting... \033[0m" | tee server_cfg.txt
+    exit 1
+  fi
+  if [ -z "$MC_VERSION" ] || [ "$MC_VERSION" = "null" ]
+  then
+    echo "\033[0;31mError: Could not get latest version of Minecraft. Exiting... \033[0m" | tee server_cfg.txt
+    exit 1
+  fi
+  echo "\033[0;32mVersion found: $MC_VERSION \033[0m" 
+  echo ""
+fi
+  # else
+  # Check if the version exists
 #   if ! [ ${MC_VERSION} = "$(wget -qO - $API_FETCH_DETAILS | jq -r '.response.version')" ]
 #   then
 #     echo "\033[0;31mError: Minecraft version $MC_VERSION version does not exist or is not available. Exiting... \033[0m" | tee server_cfg.txt
@@ -116,8 +124,13 @@ fi
 #   fi
 # fi
 
-# FETCH JAR API - thx to serverjars.com 
-API_FETCH_JAR="https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${SERVER_BUILD}/forge-${MC_VERSION}-${SERVER_BUILD}-installer.jar"
+# FETCH JAR API 
+case $SERVER_PROVIDER in
+"forge")
+echo "\033[0;33m You have set forge \033[0m" 
+API_FETCH_JAR="https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${SERVER_BUILD}/forge-${MC_VERSION}-${SERVER_BUILD}-installer.jar";;
+*) API_FETCH_JAR="https://mcutils.com/api/server-jars/${SERVER_PROVIDER}/${MC_VERSION}/download";;
+esac
 
 # Set the BUILD_FETCH_API value based on SERVER_PROVIDER
 case $SERVER_PROVIDER in
@@ -159,12 +172,23 @@ then
 fi
 
 # Download new server jar
-echo "\033[0;33mDownloading $JAR_NAME  \033[0m"
+echo "\033[0;33mDownloading $JAR_NAME \033[0m"
 echo ""
-if ! curl -o ${JAR_NAME} -sS ${API_FETCH_JAR}
+
+# Forge direct download
+if [ "$SERVER_PROVIDER" = "forge" ]
 then
-  echo "\033[0;31mError: Jar URL does not exist or is not available. Exiting... \033[0m" | tee server_cfg.txt
-  exit 1
+  if ! curl -o ${JAR_NAME} -sS ${API_FETCH_JAR}
+  then
+    echo "\033[0;31mError: Download failed. Exiting... \033[0m" | tee server_cfg.txt
+    exit 1
+  fi
+else
+  if ! curl -L -o ${JAR_NAME} -sS ${API_FETCH_JAR}
+  then
+    echo "\033[0;31mError: Download failed. Exiting... \033[0m" | tee server_cfg.txt
+    exit 1
+  fi
 fi
 
 echo "\033[0;32mSuccessfully downloaded: $JAR_NAME \033[0m"

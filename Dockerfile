@@ -2,10 +2,10 @@
 FROM eclipse-temurin:19-jre-jammy
 
 # Environment variables
-ENV SERVER_PROVIDER="forge" \
+ENV SERVER_PROVIDER="vanilla" \
     LAZYMC_VERSION="latest" \
-    MC_VERSION="1.20.1" \
-    SERVER_BUILD="47.2.0" \
+    MC_VERSION="latest" \
+    SERVER_BUILD="latest" \
     MC_RAM="" \
     JAVA_OPTS=""
 
