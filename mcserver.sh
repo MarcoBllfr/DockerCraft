@@ -134,28 +134,64 @@ esac
 
 # Set the BUILD_FETCH_API value based on SERVER_PROVIDER
 case $SERVER_PROVIDER in
-    "paper") BUILD_FETCH_API="https://papermc.io/api/v2/projects/paper/versions/${MC_VERSION}/builds/${SERVER_BUILD}";;
-    "purpur") BUILD_FETCH_API="https://api.purpurmc.org/v2/purpur/${MC_VERSION}/${SERVER_BUILD}";;
-    *) echo "\033[0;33mSkipping build check because $SERVER_PROVIDER does not support custom builds number \033[0m"
-       echo "";;
+    "paper") 
+        BUILD_FETCH_API="https://papermc.io/api/v2/projects/paper/versions/${MC_VERSION}/builds/${SERVER_BUILD}"
+        ;;
+    "purpur") 
+        BUILD_FETCH_API="https://api.purpurmc.org/v2/purpur/${MC_VERSION}/${SERVER_BUILD}"
+        ;;
+    "forge")
+        #grab manifest for retrive the build
+        echo "\033[0;33mFetching Forge build for MC ${MC_VERSION}... \033[0m"
+        echo ""
+        
+        forge_manifest=$(curl -s "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json")
+        
+        if [ -z "$forge_manifest" ]
+        then
+            echo "\033[0;31mError: Could not fetch Forge manifest. Exiting... \033[0m" | tee server_cfg.txt
+            exit 1
+        fi
+        
+        #set latest o recommended build version
+        SERVER_BUILD=$(echo "$forge_manifest" | jq -r ".promos.\"${MC_VERSION}-latest\" // .promos.\"${MC_VERSION}-recommended\" // empty")
+        #update the API_FETCH_JAR with new build version
+        API_FETCH_JAR="https://maven.minecraftforge.net/net/minecraftforge/forge/${MC_VERSION}-${SERVER_BUILD}/forge-${MC_VERSION}-${SERVER_BUILD}-installer.jar"
+        if [ -z "$SERVER_BUILD" ]
+        then
+            echo "\033[0;31mError: No Forge build found for MC ${MC_VERSION}. Exiting... \033[0m" | tee server_cfg.txt
+            exit 1
+        fi
+        
+        echo "\033[0;32mForge build found: $SERVER_BUILD \033[0m"
+        echo ""
+        ;;
+    *) 
+        echo "\033[0;33mSkipping build check because $SERVER_PROVIDER does not support custom builds number \033[0m"
+        echo ""
+        ;;
 esac
 
-#Server build handler
-if [ ${SERVER_BUILD} = latest ]
+# Server build handler (only paper/purpur)
+if [ -n "${BUILD_FETCH_API}" ]
 then
-  # Get the latest build - GIMMICK CHECK CODE SINCE MAJOR SCRIPT UPDATE
-  echo "\033[0;33mGetting latest build for ${SERVER_PROVIDER}... \033[0m"
-  echo ""
- else
-  # Check if the build exists
-  echo "\033[0;33mChecking existance of $SERVER_BUILD build for ${SERVER_PROVIDER} \033[0m"
-  echo ""
-  status_code=$(curl -s -o /dev/null -w '%{http_code}' ${BUILD_FETCH_API})
-  if [ "$status_code" -ne 200 ]
-  then
-    echo "\033[0;31mError: ${SERVER_PROVIDER} $SERVER_BUILD build does not exist or is not available. Exiting... \033[0m" | tee server_cfg.txt
-    exit 1
-  fi
+    if [ ${SERVER_BUILD} = latest ]
+    then
+        echo "\033[0;33mGetting latest build for ${SERVER_PROVIDER}... \033[0m"
+        echo ""
+    else
+        # Check if the build exists
+        echo "\033[0;33mChecking existence of $SERVER_BUILD build for ${SERVER_PROVIDER}... \033[0m"
+        echo ""
+        
+        status_code=$(curl -s -o /dev/null -w '%{http_code}' ${BUILD_FETCH_API})
+        
+        if [ "$status_code" -ne 200 ]
+        then
+            echo "\033[0;31mError: ${SERVER_PROVIDER} $SERVER_BUILD build does not exist or is not available. Exiting... \033[0m" | tee server_cfg.txt
+            exit 1
+        fi
+    fi
 fi
 
 # Set the jar file name
@@ -172,7 +208,7 @@ then
 fi
 
 # Download new server jar
-echo "\033[0;33mDownloading $JAR_NAME \033[0m"
+echo "\033[0;33mDownloading $JAR_NAME from $API_FETCH_JAR \033[0m"
 echo ""
 
 # Forge direct download
@@ -203,7 +239,7 @@ then
   then
     echo "\033[0;33mInstalling Forge $JAR_NAME ... This will take a while...\033[0m"
     echo ""
-    if ! java -jar $JAR_NAME --installServer #> /dev/null 2>&1
+    if ! java -jar $JAR_NAME --installServer > /dev/null 2>&1
     then
       echo "\033[0;31mError: Could not install Forge. Exiting... \033[0m" | tee server_cfg.txt
       exit 1
@@ -224,7 +260,7 @@ then
     mcmajor=$(echo $MC_VERSION | cut -d'.' -f1)
     mcminor=$(echo $MC_VERSION | cut -d'.' -f2)
     mcpatch=$(echo $MC_VERSION | cut -d'.' -f3)
-    if [ $mcmajor -ge 1 ] && [ $mcminor -ge 17 ] && [ $mcpatch -ge 0 ]
+    if [ "$mcmajor" -ge 1 ] && [ "$mcminor" -ge 17 ] && [ "${mcpatch:-0}" -ge 0 ]
     then
       #grep the java line from the Run.sh file
       echo "\033[0;33mGetting new forge run command from run.sh... \033[0m"
@@ -245,6 +281,9 @@ then
     else
       RUN_COMMAND="java ${JAVA_OPTS} -jar $JAR_NAME nogui"
     fi
+   else
+    # Vanilla, Paper, Purpur, NeoForge, ecc.
+    RUN_COMMAND="java ${JAVA_OPTS} -jar $JAR_NAME nogui"
   fi    
 else
   echo "\033[0;33mUsing custom run command... \033[0m"
